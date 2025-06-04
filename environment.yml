@@ -59,6 +59,7 @@ dependencies:
 - tqdm
 - types-pyyaml
 - uxarray
+- wget
 - xarray
 - xdggs
 - xgcm
