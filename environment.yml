@@ -69,6 +69,5 @@ dependencies:
   - gribscan
   - pymannkendall
   - rich
-  - xmip
 
 name: coastal-ice
