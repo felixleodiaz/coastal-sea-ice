@@ -14,7 +14,7 @@ dependencies:
 - dask
 - dask-jobqueue
 - distributed
-- earthdata
+- earthaccess
 - easygems
 - fastparquet
 - flox
@@ -59,6 +59,7 @@ dependencies:
 - tqdm
 - types-pyyaml
 - uxarray
+- wget
 - xarray
 - xdggs
 - xgcm
