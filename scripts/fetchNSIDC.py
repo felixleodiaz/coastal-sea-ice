@@ -28,7 +28,7 @@ def select_coastal(ds):
 
     # load land polygons and reproject to EPSG:3411
 
-    land = gpd.read_file("data/naturalearth/ne_110m_admin_0_countries.shp")
+    land = gpd.read_file("../data/ne_10m_land/ne_10m_land.shp")
     land = land.to_crs(epsg=3411)
 
     # get transform for rasterizing
