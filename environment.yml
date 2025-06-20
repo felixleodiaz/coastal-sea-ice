@@ -14,6 +14,7 @@ dependencies:
 - dask
 - dask-jobqueue
 - distributed
+- earthaccess
 - easygems
 - fastparquet
 - flox
