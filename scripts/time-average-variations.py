@@ -5,24 +5,32 @@ import dask
 import numpy as np
 
 # CNSIDC library
-from CNSIDC import cnget
+from CNSIDC import ice_get, ice_combine
 
 # fetch data 1990-2020 for NSIDC 0051 and 0079
 
-ds0051 = cnget('NSIDC-0051', '1990-01-01', '2020-12-31')
-ds0079 = cnget('NSIDC-0079', '1990-01-01', '2020-12-31')
+ds51 = ice_get('NSIDC-0051', '1990-01-01', '2020-12-31')
+ds51 = ice_combine(ds51)
 
-# average every january first
+ds79 = ice_get('NSIDC-0079', '1990-01-01', '2020-12-31')
+ds79 = ice_combine(ds79)
 
-# ds0051_avg = ds0051.F17_ICECON.mean(dim='time')
-# ds0079_avg = ds0079.F17_ICECON.mean(dim='time')
+# check info
+
+print(ds51.info())
+print(ds79.info())
+
+# average entire dataset
+
+ds51_avg = ds51.icecon.mean(dim='time')
+ds79_avg = ds79.icecon.mean(dim='time')
 
 # get difference array
 
-# ds_dif = ds0051_avg - ds0079_avg
+ds_avg_dif = ds51_avg - ds79_avg
 
 # plot these
 
-# print(ds0051_avg.plot(cmap='viridis', cbar_kwargs={'label': 'Sea Ice Concentration (%)'}))
-# print(ds0079_avg.plot(cmap='viridis', cbar_kwargs={'label': 'Sea Ice Concentration (%)'}))
-# print(ds_dif.plot(cmap='viridis', cbar_kwargs={'label': 'Sea Ice Concentration (%)'}))
+print(ds51_avg.plot(cmap='coolwarm', cbar_kwargs={'label': 'Sea Ice Concentration (%)'}))
+print(ds79_avg.plot(cmap='coolwarm', cbar_kwargs={'label': 'Sea Ice Concentration (%)'}))
+print(ds_avg_dif.plot(cmap='coolwarm', cbar_kwargs={'label': 'Sea Ice Concentration (%)'}))

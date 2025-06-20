@@ -5,6 +5,7 @@ import earthaccess
 import xarray as xr
 import dask
 import numpy as np
+from tqdm import tqdm
 
 # libraries for coastal masking function
 import geopandas as gpd
@@ -55,9 +56,9 @@ def select_coastal(ds):
     # apply mask
     return ds.where(coastal_mask_xr)
 
-## function to import NSIDC 0051 data ##
+## function to import NSIDC data ##
 
-def cnget(name : str, sdate : str, edate : str):
+def ice_get(name : str, sdate : str, edate : str):
 
     '''function that returns coastal sea ice data for an NSIDC product'''
 
@@ -68,7 +69,8 @@ def cnget(name : str, sdate : str, edate : str):
     results = earthaccess.search_data(
         short_name=name,
         temporal=(sdate, edate),
-        bounding_box=(-180, 0, 180, 90)
+        bounding_box=(-180, 0, 180, 90),
+        cloud_hosted=True
     )
 
     # open results with xarray
@@ -76,4 +78,24 @@ def cnget(name : str, sdate : str, edate : str):
     ds = xr.open_mfdataset(files, parallel=True, combine='by_coords', preprocess=select_coastal)
     
     # return
+    return ds
+
+def ice_combine(ds):
+
+    # this gets a list of ice concentration variables
+    icecon_vars = [var for var in ds.data_vars if 'ICECON'in var]
+    icecon_vars.sort(reverse=True)
+
+    # create template
+    temp = ds[icecon_vars[0]]
+    icecon = xr.full_like(temp, np.nan).chunk(temp.chunks)
+
+    # loop through and replace NaN values with next latest sat if available
+    for var in tqdm(icecon_vars, desc="combining ice concentration data"):
+            data = ds[var]
+            icecon = xr.where(xr.ufuncs.isnan(icecon), data, icecon)
+
+    # save dataset without extra sat data
+    ds["icecon"] = icecon
+    ds = ds.drop_vars(icecon_vars)
     return ds
