@@ -9,7 +9,7 @@
 #SBATCH --time=1:00:00                    # max runtime
 #SBATCH --output=job_output_%j.out        # job output
 #SBATCH --error=job_output_%j.err         # job error output
-#SBATCH --mail-type=END,FAIL              # send email at job completion
+#SBATCH --mail-type=START,END,FAIL        # send email at start and end of job
 #SBATCH --mail-user=fld1@williams.edu     # email address for notifications
 
 # load python interpreter
