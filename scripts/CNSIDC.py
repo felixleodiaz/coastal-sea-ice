@@ -14,19 +14,16 @@ from rasterio import features
 from scipy.ndimage import convolve
 
 
-## coastal mask preprocessing function ##
+## init coastal mask ##
 
-def select_coastal(ds):
-
-    '''helper function for use in preprocessing to select coastal data'''
-    
+def init_coastal_mask(ds):
     # load land polygons and reproject to EPSG:3411
     land = gpd.read_file("../data/ne_10m_land/ne_10m_land.shp")
     land = land.to_crs(epsg=3411)
 
     # get transform for rasterizing
-    dx = float(ds.x.diff('x').mean())  # 25000 meters
-    dy = float(ds.y.diff('y').mean())  # 25000 meters
+    dx = float(ds.x.diff('x').mean())
+    dy = float(ds.y.diff('y').mean())
     x0 = float(ds.x.min())
     y0 = float(ds.y.min())
     transform = [dx, 0, x0, 0, -dy, y0]
@@ -53,8 +50,8 @@ def select_coastal(ds):
         dims=('y', 'x')
     )
 
-    # apply mask
-    return ds.where(coastal_mask_xr)
+    return coastal_mask_xr
+
 
 ## function to import NSIDC data ##
 
@@ -65,7 +62,7 @@ def ice_get(name : str, sdate : str, edate : str):
     # authenticate (you need a NASA earthaccess account for this)
     auth = earthaccess.login(strategy='interactive', persist = True)
 
-    # search for results (testing with just a couple days)
+    # search for results
     results = earthaccess.search_data(
         short_name=name,
         temporal=(sdate, edate),
@@ -73,9 +70,14 @@ def ice_get(name : str, sdate : str, edate : str):
         cloud_hosted=True
     )
 
+    # create mask
+    init_file = earthaccess.open([results[0]])
+    mask_ds = xr.open_mfdataset(init_file, parallel=True)
+    mask = init_coastal_mask(mask_ds)
+
     # open results with xarray
     files = earthaccess.open(results)
-    ds = xr.open_mfdataset(files, parallel=True, combine='by_coords', preprocess=select_coastal)
+    ds = xr.open_mfdataset(files, parallel=True, combine='by_coords', chunks={'time' : 1}, preprocess=lambda ds: ds.where(mask))
     
     # return
     return ds
