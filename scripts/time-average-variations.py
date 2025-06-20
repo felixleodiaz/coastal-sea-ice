@@ -3,6 +3,7 @@ import earthaccess
 import xarray as xr
 import dask
 import numpy as np
+import matplotlib.pyplot as plt
 
 # CNSIDC library
 from CNSIDC import ice_get, ice_combine
@@ -29,8 +30,23 @@ ds79_avg = ds79.icecon.mean(dim='time')
 
 ds_avg_dif = ds51_avg - ds79_avg
 
-# plot these
+# Plot 1
+fig, ax = plt.subplots(figsize=(8, 6))
+ds51_avg.plot(ax=ax, cmap='coolwarm', cbar_kwargs={'label': 'Sea Ice Concentration (%)'})
+ax.set_title("Average Sea Ice Concentration NSIDC 0051: 1990–2020")
+fig.savefig("../figures/NSIDC0051_TOTAL_AVG.png", dpi=300, bbox_inches='tight')
+plt.close(fig)
 
-print(ds51_avg.plot(cmap='coolwarm', cbar_kwargs={'label': 'Sea Ice Concentration (%)'}))
-print(ds79_avg.plot(cmap='coolwarm', cbar_kwargs={'label': 'Sea Ice Concentration (%)'}))
-print(ds_avg_dif.plot(cmap='coolwarm', cbar_kwargs={'label': 'Sea Ice Concentration (%)'}))
+# Plot 2
+fig, ax = plt.subplots(figsize=(8, 6))
+ds79_avg.plot(ax=ax, cmap='coolwarm', cbar_kwargs={'label': 'Sea Ice Concentration (%)'})
+ax.set_title("Average Sea Ice Concentration NSIDC 0079: 1990–2020")
+fig.savefig("../figures/NSIDC0079_TOTAL_AVG.png", dpi=300, bbox_inches='tight')
+plt.close(fig)
+
+# Plot 3: Difference
+fig, ax = plt.subplots(figsize=(8, 6))
+ds_avg_dif.plot(ax=ax, cmap='coolwarm', cbar_kwargs={'label': 'Sea Ice Concentration (%)'})
+ax.set_title("Difference in Tot Avg Sea Ice: NSIDC 0079 and NSIDC 0051: 1990–2020")
+fig.savefig("../figures/TOTAL_AVG_DIF.png", dpi=300, bbox_inches='tight')
+plt.close(fig)
