@@ -8,10 +8,10 @@ from CNSIDC import ice_get, ice_combine
 
 # fetch data 1990-2020 for NSIDC 0051 and 0079
 
-ds51 = ice_get('NSIDC-0051', '1990-01-01', '1990-01-15')
+ds51 = ice_get('NSIDC-0051', '1990-01-01', '2020-12-31')
 ds51 = ice_combine(ds51)
 
-ds79 = ice_get('NSIDC-0079', '1990-01-01', '1990-01-15')
+ds79 = ice_get('NSIDC-0079', '1990-01-01', '2020-12-31')
 ds79 = ice_combine(ds79)
 
 # average entire dataset
