@@ -176,6 +176,27 @@ da_full
 
 ds = ds.assign(**{'visual_ice': da_full['SI frac']})
 
+# sanity check to make sure everything works
+
+x_min, x_max = visual['x'].min(), visual['x'].max()
+y_min, y_max = visual['y'].min(), visual['y'].max()
+
+ds_subset = ds.sel(x=slice(x_min, x_max), y=slice(y_max, y_min)).where(ds.edtl > 0)
+ax = ds_subset.team_icecon.isel(time=0).plot(
+    cmap=cmap,
+    figsize=(6,6)
+)
+
+plt.scatter(
+    visual['x'],
+    visual['y'],
+    color='black',
+    s=1,
+    alpha=0.6
+)
+plt.title("Where we Have Visual Data in January, 2023")
+plt.show()
+
 ## ERROR CALCULATIONS ##
 print('Starting error calculations')
 
@@ -192,7 +213,6 @@ ds_clean = ds.where(condition, other=np.nan).compute()
 
 df_bootstrap = ds_clean.to_dataframe().reset_index().dropna()
 
-## CONTINUE ERROR CALCULATION SECTION HERE ##
 
 error = ((((ds_clean['F17_ICECON'] - ds_clean['visual_ice']))**2)**0.5)
 error_avg = error.mean(dim=['time', 'x', 'y'], skipna=True)
