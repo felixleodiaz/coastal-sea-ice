@@ -2,10 +2,7 @@
 
 #SBATCH --job-name=coastal_ice            # job name
 #SBATCH --partition=hpc                   # partition or queue name
-#SBATCH --nodes=1                         # num of nodes
-#SBATCH --ntasks-per-node=1               # num of tasks per node
-#SBATCH --cpus-per-task=100               # num of CPU cores per task
-#SBATCH --mem-per-cpu=2G                  # memory per CPU requested
+#SBATCH  -N1                              # num of nodes (I want one entire node)
 #SBATCH --time=10:00:00                   # max runtime
 #SBATCH --output=job_output_%j.out        # job output
 #SBATCH --error=job_output_%j.err         # job error output
@@ -17,4 +14,4 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate coastal-ice
 
 # run scripts
-python time-average-variations.py
+python IceValidation.py
