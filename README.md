@@ -1,5 +1,3 @@
 # Coastal Sea Ice Detection Algorithm Comparison
 
-Project comparing sea ice concentration algorithms and their associated error. Working under Dr Alice Bradley. 
-
-There is a walkthrough of the project in scripts/NSIDCtutorial.ipynb 
+This is data analysis for my senior thesis at Williams College, Massachussets, advised by Dr Alice Bradley. I am looking at error between Passive Microwave (PMW) coastal sea ice products and visual data derived in Google Earth Engine. Scripts used for the project can be found in /scripts/ and figures are sorted into folders in /figures/. What small datasets and metadata I could fit into this repository can be found in /data/.
