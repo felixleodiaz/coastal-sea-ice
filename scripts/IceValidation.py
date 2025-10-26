@@ -1,3 +1,8 @@
+# input parameters
+date_start: str = input("Enter starting date in format YYYY-MM-DD: ")
+date_end: str = input("Enter ending date in format YYYY-MM-DD: ")
+year = date_end[0:4]
+
 # import libraries
 
 import earthaccess
@@ -16,7 +21,7 @@ import seaborn as sns
 from pyproj import Proj, Transformer
 from pathlib import Path
 import glob
-import fnmatch
+import re
 
 # colormap for plotting sea ice throughout rest of project
 
@@ -24,9 +29,9 @@ cmap = plt.get_cmap("Blues_r").copy()
 cmap.set_bad(color='lightgray')
 
 ## PASSIVE MICROWAVE SECTION ##
-print('Reading in NASA Team and Boostrap data from NASA Eartaccess')
 
 # authenticate NASA earth access
+print('Getting NASA Team file list')
 
 auth = earthaccess.login(strategy='interactive', persist = True)
 
@@ -34,12 +39,11 @@ auth = earthaccess.login(strategy='interactive', persist = True)
 
 results = earthaccess.search_data(
     short_name= 'NSIDC-0051',
-    temporal=('2023-01-01', '2023-01-31'),
+    temporal=(date_start, date_end),
     bounding_box=(-180, 0, 180, 90),
     cloud_hosted=True
 )
 
-import re
 filtered_results = [
     g for g in results
     if re.search(r'_20\d{6}_', g.data_links(access='external')[0])
@@ -50,10 +54,11 @@ filtered_results = [
 files_team = earthaccess.open(filtered_results)
 
 # search NASA database for Bootstrap
+print('Getting NASA Bootstrap file list')
 
 results = earthaccess.search_data(
     short_name= 'NSIDC-0079',
-    temporal=('2023-01-01', '2023-01-31'),
+    temporal=(date_start, date_end),
     bounding_box=(-180, 0, 180, 90),
     cloud_hosted=True
 )
@@ -68,6 +73,7 @@ filtered_results = [
 files_bootstrap = earthaccess.open(filtered_results)
 
 # stream team into xarray
+print('Opening daily NASA Team data into array')
 
 ds = xr.open_mfdataset(
     files_team, 
@@ -88,6 +94,7 @@ icecon = ds[icecon_vars].to_array("source").max("source", skipna=True)
 ds = ds.assign(team_icecon=icecon).drop_vars(icecon_vars)
 
 # stream bootstrap into xarray
+print('Opening daily NASA Bootstrap data into array')
 ds_bootstrap = xr.open_mfdataset(
     files_bootstrap, 
     parallel = True, 
@@ -107,6 +114,7 @@ icecon = ds_bootstrap[icecon_vars].to_array("source").max("source", skipna=True)
 ds = ds.assign(bootstrap_icecon=icecon)
 
 # read in land file from geopandas and initialize transform (from NSIDC metadata)
+print('Calculating distance from land for each pixel')
 
 land = gpd.read_file("../data/ne_10m_land/ne_10m_land.shp")
 land = land.to_crs(epsg=3411)
@@ -138,7 +146,6 @@ distance_xr = xr.DataArray(
 # add as data variable in ds
 
 ds['edtl'] = distance_xr
-print(ds)
 
 ## VISUAL ICE SECTION ##
 print('Reading in and engineering visual data')
@@ -146,7 +153,7 @@ print('Reading in and engineering visual data')
 # read in files
 
 folderpath = '../local_data/visual_ice/'
-paths = Path(folderpath).glob('*20??*.csv')
+paths = Path(folderpath).glob(f'*{year}*.csv')
 pathlist = list(paths)
 
 # data cleaning of visual datasets
@@ -170,7 +177,6 @@ visual = visual.drop_duplicates(subset=["Date", "x", "y"])
 da_sparse = visual.set_index(['time', 'y', 'x']).to_xarray()
 da_full = da_sparse.reindex_like(ds, method=None)
 da_full = da_full.chunk({'time': 2})
-da_full
 
 # assign visual data to the NASA team dataset
 
@@ -182,7 +188,7 @@ x_min, x_max = visual['x'].min(), visual['x'].max()
 y_min, y_max = visual['y'].min(), visual['y'].max()
 
 ds_subset = ds.sel(x=slice(x_min, x_max), y=slice(y_max, y_min)).where(ds.edtl > 0)
-ax = ds_subset.team_icecon.isel(time=0).plot(
+ax = ds_subset.team_icecon.mean(dim='time').plot(
     cmap=cmap,
     figsize=(6,6)
 )
@@ -194,29 +200,65 @@ plt.scatter(
     s=1,
     alpha=0.6
 )
-plt.title("Where we Have Visual Data in January, 2023")
-plt.show()
+plt.title(f"Where we Have Visual Data in Year {year}")
+plt.savefig(f'../figures/visual_data_extent/{year}_visual_extent.png')
+plt.close()
+
+# print dataset
+
+print('Printing dataset with visual, team, bootstrap, and distance from land')
+print(ds)
 
 ## ERROR CALCULATIONS ##
 print('Starting error calculations')
 
-# data cleaning (1.012 = coast, 1.016 = land)
+# ERROR FOR TEAM
 
-condition = ((ds.visual_ice.notnull()) & (ds.team_icecon < 1.01))
+condition = ((ds.visual_ice.notnull()) & (ds.team_icecon < 1.001))
 ds_clean = ds.where(condition, other=np.nan).compute()
 
-df_team = ds_clean.to_dataframe().reset_index().dropna()
+# calc error
 
+error_team = (((ds_clean['team_icecon'] - ds_clean['visual_ice'])**2)**0.5)
+error_avg = error_team.mean(dim=['time', 'x', 'y'], skipna=True)
+print('RMS error for NASA Team is', error_avg.compute().item())
 
-condition = ((ds.visual_ice.notnull()) & (ds.bootstrap_icecon < 1.01))
+# save a data cleaned pandas dataframe for team with everything (1.012 = coast, 1.016 = land)
+
+df = ds_clean.to_dataframe().reset_index().dropna()
+df.to_csv(f'../data/data_frames/team_validation_{year}.csv')
+
+# ERROR FOR BOOTSTRAP
+
+condition = ((ds.visual_ice.notnull()) & (ds.bootstrap_icecon < 1.001))
 ds_clean = ds.where(condition, other=np.nan).compute()
 
-df_bootstrap = ds_clean.to_dataframe().reset_index().dropna()
+# error calculation bootstrap
 
+error_bootstrap = (((ds_clean['bootstrap_icecon'] - ds_clean['visual_ice'])**2)**0.5)
+error_avg = error_bootstrap.mean(dim=['time', 'x', 'y'], skipna=True)
+print('RMS error for NASA Bootstrap is', error_avg.compute().item())
 
-error = ((((ds_clean['F17_ICECON'] - ds_clean['visual_ice']))**2)**0.5)
-error_avg = error.mean(dim=['time', 'x', 'y'], skipna=True)
-print('RMS error is', error_avg.compute().item())
+# save a data cleaned pandas dataframe for boostrap with everything (1.012 = coast, 1.016 = land)
 
-df_team.to_csv('team_error_dataframe.csv')
-df_bootstrap.to_csv('bootstrap_error_dataframe.csv')
+df = ds_clean.to_dataframe().reset_index().dropna()
+df.to_csv(f'../data/data_frames/bootstrap_validation_{year}.csv')
+
+# MAP ERROR
+
+# map error NASA team
+
+sns.set_style('darkgrid')
+error_subset = error_team.sel(x=slice(x_min, x_max), y=slice(y_max, y_min))
+ax = error_subset.mean(dim='time', skipna=True).plot(cmap = 'RdBu', figsize=(6,6))
+plt.title(f"Error Between NASA Team and Visual Mapped 2023-04-01 to 2023-05-31")
+plt.savefig(f'../figures/error_maps/team_{year}_error.png')
+plt.close()
+
+# map error NASA bootstrap
+
+error_subset = error_bootstrap.sel(x=slice(x_min, x_max), y=slice(y_max, y_min))
+ax = error_subset.mean(dim='time', skipna=True).plot(cmap = 'RdBu', figsize=(6,6))
+plt.title(f"Error Between NASA Team and Visual Mapped 2023-04-01 to 2023-05-31")
+plt.savefig(f'../figures/error_maps/bootstrap_{year}_error.png')
+plt.close()
