@@ -147,6 +147,16 @@ distance_xr = xr.DataArray(
 
 ds['edtl'] = distance_xr
 
+# reindex data array
+
+nrows = ds.sizes['y']
+ncols = ds.sizes['x']
+
+ds = ds.assign_coords({
+    'row': ('y', np.arange(nrows)),
+    'col': ('x', np.arange(ncols))
+}).swap_dims({'y': 'row', 'x': 'col'})
+
 ## VISUAL ICE SECTION ##
 print('Reading in and engineering visual data')
 
@@ -162,40 +172,36 @@ visual = pd.concat(map(pd.read_csv, pathlist), ignore_index=True)
 
 # convert things for xarray
 
-row_to_lat = dict(enumerate(ds['x'].values))
-col_to_lon = dict(enumerate(ds['y'].values))
 visual["time"] = pd.to_datetime(visual["Date"], yearfirst=True)
+visual['row'] = visual['Column'] - 1
+visual['col'] = visual['Row'] - 1
 
-visual['Row'] = visual['Row'] - 1
-visual['Column'] = visual['Column'] - 1
-visual['x'] = visual['Row'].map(row_to_lat)
-visual['y'] = visual['Column'].map(col_to_lon)
-visual = visual.drop_duplicates(subset=["Date", "x", "y"])
+# drop duplicates
 
-# convert pandas dataframe of visual things into chunked xarray dataset on time, lat, and lon
+visual = visual.drop_duplicates(subset=["time", "row", "col"])
 
-da_sparse = visual.set_index(['time', 'y', 'x']).to_xarray()
+# convert to xarray
+
+da_sparse = visual.set_index(['time', 'row', 'col']).to_xarray()
 da_full = da_sparse.reindex_like(ds, method=None)
+
 da_full = da_full.chunk({'time': 2})
-
-# assign visual data to the NASA team dataset
-
 ds = ds.assign(**{'visual_ice': da_full['SI frac']})
 
 # sanity check to make sure everything works
 
-x_min, x_max = visual['x'].min(), visual['x'].max()
-y_min, y_max = visual['y'].min(), visual['y'].max()
+col_min, col_max = visual['col'].min(), visual['col'].max()
+row_min, row_max = visual['row'].min(), visual['row'].max()
 
-ds_subset = ds.sel(x=slice(x_min, x_max), y=slice(y_max, y_min)).where(ds.edtl > 0)
+ds_subset = ds.sel(col=slice(col_min, col_max), row=slice(row_min, row_max))
 ax = ds_subset.team_icecon.mean(dim='time').plot(
     cmap=cmap,
     figsize=(6,6)
 )
 
 plt.scatter(
-    visual['x'],
-    visual['y'],
+    visual['col'],
+    visual['row'],
     color='black',
     s=1,
     alpha=0.6
@@ -220,7 +226,7 @@ ds_clean = ds.where(condition, other=np.nan).compute()
 # calc error
 
 error_team = (((ds_clean['team_icecon'] - ds_clean['visual_ice'])**2)**0.5)
-error_avg = error_team.mean(dim=['time', 'x', 'y'], skipna=True)
+error_avg = error_team.mean(dim=['time', 'col', 'row'], skipna=True)
 print('RMS error for NASA Team is', error_avg.compute().item())
 
 # save a data cleaned pandas dataframe for team with everything (1.012 = coast, 1.016 = land)
@@ -236,7 +242,7 @@ ds_clean = ds.where(condition, other=np.nan).compute()
 # error calculation bootstrap
 
 error_bootstrap = (((ds_clean['bootstrap_icecon'] - ds_clean['visual_ice'])**2)**0.5)
-error_avg = error_bootstrap.mean(dim=['time', 'x', 'y'], skipna=True)
+error_avg = error_bootstrap.mean(dim=['time', 'col', 'row'], skipna=True)
 print('RMS error for NASA Bootstrap is', error_avg.compute().item())
 
 # save a data cleaned pandas dataframe for boostrap with everything (1.012 = coast, 1.016 = land)
@@ -249,16 +255,14 @@ df.to_csv(f'../data/data_frames/bootstrap_validation_{year}.csv')
 # map error NASA team
 
 sns.set_style('darkgrid')
-error_subset = error_team.sel(x=slice(x_min, x_max), y=slice(y_max, y_min))
-ax = error_subset.mean(dim='time', skipna=True).plot(cmap = 'RdBu', figsize=(6,6))
+ax = error_team.mean(dim='time', skipna=True).plot(cmap = 'RdBu', figsize=(6,6))
 plt.title(f"Error Between NASA Team and Visual Mapped 2023-04-01 to 2023-05-31")
 plt.savefig(f'../figures/error_maps/team_{year}_error.png')
 plt.close()
 
 # map error NASA bootstrap
 
-error_subset = error_bootstrap.sel(x=slice(x_min, x_max), y=slice(y_max, y_min))
-ax = error_subset.mean(dim='time', skipna=True).plot(cmap = 'RdBu', figsize=(6,6))
+ax = error_bootstrap.mean(dim='time', skipna=True).plot(cmap = 'RdBu', figsize=(6,6))
 plt.title(f"Error Between NASA Team and Visual Mapped 2023-04-01 to 2023-05-31")
 plt.savefig(f'../figures/error_maps/bootstrap_{year}_error.png')
 plt.close()
